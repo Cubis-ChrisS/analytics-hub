@@ -15,6 +15,7 @@ Dependencies (i.e. Packages used):
 
 
 To do:
+- Understand which Python package we need to use!!!
 - Create Python code to test the link with the API.
 - Create Python code to perform a GET request to the API.
 - Investigate how you can get a token for the code.
