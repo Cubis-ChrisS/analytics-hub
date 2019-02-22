@@ -26,6 +26,8 @@ if __name__ == '__main__':
     client_id = 'sac-hub-demo'
     client_secret = 'sac-hub-demo'
 
+    # Example comes from https://requests-oauthlib.readthedocs.io/en/latest/oauth2_workflow.html
+    # Follow WebApplication workflow!
     oauth = OAuth2Session(client_id, redirect_uri=redirect_uri)
     authorization_url, state = oauth.authorization_url(authorize_url)
     print(authorization_url)
