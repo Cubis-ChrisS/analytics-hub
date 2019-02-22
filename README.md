@@ -3,10 +3,9 @@
 You want to develop some Python code to connect with the API of the SAC Hub.
 
 Packages / dependencies:
-- Python version (to be checked)
-- Oauthlib  (version x.x)
-- json      (version x.x)
-- Request   (version x.x)
+- Python      (version 3.7.1)
+- oauthlib    (version 3.0.0)
+- requests    (version 2.21.0)
 
 
 To do:
