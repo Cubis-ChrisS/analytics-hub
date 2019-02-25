@@ -80,7 +80,7 @@ class ConnectSacHub:
         # Get a new X-CSRF-Token
         self.fetchXcsrf()
 
-    def updateNewReport(self, timeDiffMax = 14.):
+    def updateNewReportLov(self, timeDiffMax = 14.):
         """
         Update the NewReport lov for all assets in the SAC Hub store
         Assets are considered "new" when the last change happened less than timeDiffMax days ago!
@@ -94,7 +94,7 @@ class ConnectSacHub:
         for timeMod in self.lastModified: # Need explicit for-loop, since datetime does not allow for list input
             timediff = (datetime.datetime.utcfromtimestamp(self.currentTime) -
             datetime.datetime.utcfromtimestamp(timeMod)).days   # Could still use the hours to round up, but not enabled
-            if timediff < 1: #WARNING WARNING WARNING FOR DEBUGGING ONLY
+            if timediff < 1: #WARNING WARNING WARNING FOR DEBUGGING AND DEVL ONLY
                 newAsset.append('Yes')
             else:
                 newAsset.append('No')
@@ -175,20 +175,67 @@ class ConnectSacHub:
             print('\tX-CSRF-Token updated')
 
     def getLiveStore(self):
-        """Retrieve the full information of your live assets in your SAC Hub store"""
+        """Retrieve the full information of your live assets in your SAC Hub store through a GET request"""
         print('\tGETting the information of your live store')
         r = self.client.get(self.base + 'asset/recent', headers=self.headers)
-        self.store = r.json()
-        self.assetid = []
-        self.created = []
-        self.lastModified = []
-        for asset in self.store:
-            self.assetid.append(asset['id'])
-            self.created.append(asset['created'])
-            try:
-                self.lastModified.append(asset['lastModified'] / 1000.) # Unix timestamp in seconds, was milliseconds!
-            except: # In case there was no lastModified tag (unsure if this can actually happen!)
-                self.lastModified.append(asset['created'] / 1000.) # Unix timestamp in seconds, was milliseconds!
+        if r.ok:
+            self.store = r.json()
+            self.assetid = []
+            self.created = []
+            self.lastModified = []
+            for asset in self.store:
+                self.assetid.append(asset['id'])
+                self.created.append(asset['created'])
+                try:
+                    self.lastModified.append(asset['lastModified'] / 1000.) # Unix timestamp in seconds, was milliseconds!
+                except: # In case there was no lastModified tag (unsure if this can actually happen!)
+                    self.lastModified.append(asset['created'] / 1000.) # Unix timestamp in seconds, was milliseconds!
+        else:
+            print(f'Your GET request was unsuccessful with status code {r.status_code}')
+
+    def updateAssetLov(self, assetId, draftId, lovId, lovValue):
+        """
+        Update a lov for the asset with assetId and draftId through a POST request
+        The lovId and new lovValue needs to be specified
+        """
+        print(f'\tPOSTing lov update to asset {assetId} with draftId {draftId}')
+
+    def changeLive2Draft(self, assetId):
+        """Change the status of a live asset to draft and return the draftId through a POST request"""
+        print(f'\tPOSTing asset {assetId} from live to draft')
+        r = self.client.post(self.base + 'asset/' + str(assetId) + '/draft',
+                            headers=self.headers, json={'status': 'draft'})
+        if r.ok:
+            draftId = r.json()['id']
+            print(f'\t\tSuccessful POST; draft has draftId {draftId}')
+            return draftId
+        else:
+            print(f'Your POST request was unsuccessful with status code {r.status_code}')
+            print(self.base + 'asset/' + str(assetId) + '/draft')
+
+    def updateStatusDraft(self, draftId, status='forReview'):
+        """Change the status of a draft asset through a POST request"""
+        if status not in ['forReview', 'draft', 'rejected', 'retired', 'live']:
+            raise ValueError(f'Specify correct status to update draft {draftId}')
+        print(f'\tPOSTing draft {draftId} to status {status}')
+        r = self.client.post(self.base + 'asset/draft/' + str(draftId) + '/status',
+                            headers=self.headers, json={'status': status})
+        if not r.ok:
+            print(f'Your POST request was unsuccessful with status code {r.status_code}')
+
+    def deleteDraft(self, draftId):
+        """Delete a draft asset through a DELETE request"""
+        print(f'\DELETEing draft {draftId}')
+        r = self.client.delete(self.base + 'asset/draft/' + str(draftId),
+                            headers=self.headers)
+        if not r.ok:
+            print(f'Your DELETE request was unsuccessful with status code {r.status_code}')
+
+    def autoValidateDraft(self, draftId, timeout=1.5):
+        """Automatically update a draft from draft to forReview to live through a series of POST requests"""
+        self.updateStatusDraft(draftId, status='forReview')
+        time.sleep(timeout)
+        self.updateStatusDraft(draftId, status='live')
 
 
 
@@ -198,5 +245,7 @@ if __name__ == '__main__':
     # Call the class to generate a token
     my_connection = ConnectSacHub('./credits.dat', './token.dat')
     my_connection.connect()
-    my_connection.updateNewReport()
+    my_connection.updateNewReportLov()
+    draftId = my_connection.changeLive2Draft(2)
+    my_connection.autoValidateDraft(draftId)
     # Peform update of newDraft
