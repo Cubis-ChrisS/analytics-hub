@@ -32,3 +32,7 @@ Functionality needed / wanted:
   -> If asset needs to change, move to draft
   -> Update draft
   -> Push draft to forValidation to live
+
+Major issue:
+- Flag API and non-API updates, so the code knows when to ignore the API updates for "NewReport".
+- Many potential implementations possible.  Unclear which is the simplest to take.
