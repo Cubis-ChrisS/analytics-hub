@@ -6,7 +6,7 @@ You want to develop some Python code to connect with the API of the SAC Hub.
 Code is developed with Python version 3.7.1 through an Anaconda installation.
 
 
-Dependencies (i.e. Packages used):
+Dependencies (i.e. packages / modules used):
 - oauthlib            (version 3.0.0)
 - requests-oauthlib   (version 1.0.0)
 - requests            (version 2.21.0)
