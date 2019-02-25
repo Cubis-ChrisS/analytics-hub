@@ -10,8 +10,9 @@ Dependencies (i.e. Packages used):
 - oauthlib            (version 3.0.0)
 - requests-oauthlib   (version 1.0.0)
 - requests            (version 2.21.0)
-- sys                 (standard package)
 - logging             (version 0.5.1.2)
+- time
+- datetime
 
 
 To do:
