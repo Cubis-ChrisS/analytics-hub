@@ -193,6 +193,18 @@ class ConnectSacHub:
         else:
             print(f'Your GET request was unsuccessful with status code {r.status_code}')
 
+    def getLovFieldsStructure(self):
+        """Get the structure of the lovFields through a GET request"""
+        print('\tGETting the information of your live store')
+        r = self.client.get(self.base + 'structure/lov', headers=self.headers)
+        if r.ok:
+            lovFieldsStruct = r.json()
+            return lovFieldsStruct
+        else:
+            print(f'Your GET request was unsuccessful with status code {r.status_code}')
+
+
+
     def updateAssetLov(self, assetId, draftId, lovId, lovValue):
         """
         Update a lov for the asset with assetId and draftId through a POST request
