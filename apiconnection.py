@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mo Feb 25 2019
-LastModified on Mo Feb 25 2019
+LastModified on We Feb 27 2019
 
 @author: Bram Buysschaert
 
@@ -18,6 +18,7 @@ from oauthlib import oauth2
 from requests_oauthlib import OAuth2Session
 import csv
 import time, datetime
+import pandas as pd
 
 # Set the logging
 import logging
@@ -98,14 +99,26 @@ class ConnectSacHub:
                 newAsset.append('Yes')
             else:
                 newAsset.append('No')
+        print('!!!Functionality not fully implemented!!!')
         # Loop over the assets and update the assets
-        for asset, id, newAsset in zip(self.store, self.assetid, newAsset):
-            lovFields = asset['lovFields'].items()
-            for key_lovo, val_lovo in lovFields:
-                for key_lovi, val_lovi in val_lovo.items():
-                    if val_lovi == 'New Report':
-                        print(key_lovo, key_lovi, val_lovi)
-                print(key_lovo, val_lovo)
+        #for asset, id, newAsset in zip(self.store, self.assetid, newAsset):
+        #    lovFields = asset['lovFields'].items()
+        #    for key_lovo, val_lovo in lovFields:
+        #        for key_lovi, val_lovi in val_lovo.items():
+        #            if val_lovi == 'New Report':
+        #                print(key_lovo, key_lovi, val_lovi)
+        #        print(key_lovo, val_lovo)
+
+    def updateReportSuggestions(self, assets='all', nSuggestions=3):
+        """
+        Go through the store and test whether i) the report suggestions exist and ii) the report suggestions are correct
+        If the tests fail, you update the report suggestions with new values (i.e., links)
+        """
+        # Retrieve minimal information to make report suggestions
+        df_sug = self.extractSuggestionsInfoStore()
+        # Perform suggestions for each asset
+        self.pushReportSuggestions(df_sug, assets, nSuggestions)
+
 
 
     # =========================================================
@@ -162,13 +175,13 @@ class ConnectSacHub:
 
     def testClient(self):
         """Test the oauthlib connection to the client with a get request to the user profile and return boolean for success"""
-        r = self.client.get(self.base + 'profile')
+        r = self.client.get(self.base + 'api/v1/profile')
         return r.ok
 
     def fetchXcsrf(self):
         """Fetch a new X-CSRF-token from a get request to the user profile and update the header"""
         print('\tFetching a new X-CSRF-Token')
-        r = self.client.get(self.base + 'profile', headers=self.headers)
+        r = self.client.get(self.base + 'api/v1/profile', headers=self.headers)
         if r.ok:
             self.xcsrf = r.headers['x-csrf-token']
             self.headers['x-csrf-token'] = self.xcsrf
@@ -177,33 +190,39 @@ class ConnectSacHub:
     def getLiveStore(self):
         """Retrieve the full information of your live assets in your SAC Hub store through a GET request"""
         print('\tGETting the information of your live store')
-        r = self.client.get(self.base + 'asset/recent', headers=self.headers)
+        r = self.client.get(self.base + 'api/v1/asset/recent', headers=self.headers)
         if r.ok:
-            self.store = r.json()
-            self.assetid = []
-            self.created = []
-            self.lastModified = []
-            for asset in self.store:
-                self.assetid.append(asset['id'])
-                self.created.append(asset['created'])
-                try:
-                    self.lastModified.append(asset['lastModified'] / 1000.) # Unix timestamp in seconds, was milliseconds!
-                except: # In case there was no lastModified tag (unsure if this can actually happen!)
-                    self.lastModified.append(asset['created'] / 1000.) # Unix timestamp in seconds, was milliseconds!
+            # Create a dictionary for the store
+            self.store = {}
+            for asset in r.json():
+                self.store[str(asset['id'])] = asset
+            self.assetid = self.store.keys()
         else:
             print(f'Your GET request was unsuccessful with status code {r.status_code}')
 
-    def getLovFieldsStructure(self):
-        """Get the structure of the lovFields through a GET request"""
-        print('\tGETting the information of your live store')
-        r = self.client.get(self.base + 'structure/lov', headers=self.headers)
-        if r.ok:
-            lovFieldsStruct = r.json()
-            return lovFieldsStruct
+    def getAssetStructure(self):
+        """Retrieve the full field, lovfield and lov structure of the asset layout"""
+        print('\tGETting the information of your asset layout')
+        # Warning: you do not get the different asset types, as there is currently only one type!
+        # Get the fields
+        rfield = self.client.get(self.base + 'api/v1/structure/field', headers=self.headers)
+        # Get the lovfields
+        rlovf = self.client.get(self.base + 'api/v1/structure/lovfield', headers=self.headers)
+        # Get the lovs
+        rlov = self.client.get(self.base + 'api/v1/structure/lov', headers=self.headers)
+        # Successful GET requests
+        if (rfield.ok) & (rlovf.ok) & (rlov.ok):
+            fields, lovfs, lovs = {}, {}, {}
+            # Include them to a nested dictionary
+            for field in rfield.json():
+                fields[field['title']] = {key: field[key] for key in ['id', 'title', 'multi']}
+            for lovf in rlovf.json():
+                lovfs[lovf['title']] = lovf #{key: lovf[key] for key in ['id', 'title', 'multi', 'lovId']}
+            for lov in rlov.json():
+                lovs[lov['title']] = {key: lov[key] for key in ['id', 'title']}
+            self.structure = {'fields':fields, 'lovfields':lovfs, 'lovs':lovs}
         else:
-            print(f'Your GET request was unsuccessful with status code {r.status_code}')
-
-
+            print(f'Your GET requests were unsuccessful with status code {rfield.status_code} (fields), {rlovf.status_code} (lovfields) and {rlov.status_code} (lovs)')
 
     def updateAssetLov(self, assetId, draftId, lovId, lovValue):
         """
@@ -211,11 +230,12 @@ class ConnectSacHub:
         The lovId and new lovValue needs to be specified
         """
         print(f'\tPOSTing lov update to asset {assetId} with draftId {draftId}')
+        print("Not fully implemented")
 
     def changeLive2Draft(self, assetId):
         """Change the status of a live asset to draft and return the draftId through a POST request"""
         print(f'\tPOSTing asset {assetId} from live to draft')
-        r = self.client.post(self.base + 'asset/' + str(assetId) + '/draft',
+        r = self.client.post(self.base + 'api/v1/asset/' + str(assetId) + '/draft',
                             headers=self.headers, json={'status': 'draft'})
         if r.ok:
             draftId = r.json()['id']
@@ -224,13 +244,14 @@ class ConnectSacHub:
         else:
             print(f'Your POST request was unsuccessful with status code {r.status_code}')
             print(self.base + 'asset/' + str(assetId) + '/draft')
+            return None
 
     def updateStatusDraft(self, draftId, status='forReview'):
         """Change the status of a draft asset through a POST request"""
         if status not in ['forReview', 'draft', 'rejected', 'retired', 'live']:
             raise ValueError(f'Specify correct status to update draft {draftId}')
         print(f'\tPOSTing draft {draftId} to status {status}')
-        r = self.client.post(self.base + 'asset/draft/' + str(draftId) + '/status',
+        r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId) + '/status',
                             headers=self.headers, json={'status': status})
         if not r.ok:
             print(f'Your POST request was unsuccessful with status code {r.status_code}')
@@ -238,7 +259,7 @@ class ConnectSacHub:
     def deleteDraft(self, draftId):
         """Delete a draft asset through a DELETE request"""
         print(f'\DELETEing draft {draftId}')
-        r = self.client.delete(self.base + 'asset/draft/' + str(draftId),
+        r = self.client.delete(self.base + 'api/v1/asset/draft/' + str(draftId),
                             headers=self.headers)
         if not r.ok:
             print(f'Your DELETE request was unsuccessful with status code {r.status_code}')
@@ -249,6 +270,113 @@ class ConnectSacHub:
         time.sleep(timeout)
         self.updateStatusDraft(draftId, status='live')
 
+    def extractSuggestionsInfoStore(self):
+        """Extract the minimal information to make report suggestions from the local copy of the store"""
+        print('Extracting information for reportSuggestions from live store')
+        # Empty dataframe to store the information to
+        df = pd.DataFrame(index=self.assetid, columns=['assetType', 'assetTitle', 'viewCount', 'assetDomain', 'draftId', 'suggestionIds'])
+        # Get the id's for certain fields and lovs from the pre-loaded structure
+        id_title = str(self.structure['fields']['Title']['id'])
+        id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
+        id_domain = str(self.structure['lovfields']['Domain']['id'])
+        # Loop over the assets in the store
+        for assetId, asset in self.store.items():
+            # Create dictionary with the information
+            d = {'assetType': asset['type'],
+                 'viewCount': asset['viewCount']}
+            # Search in the fields for the title of the asset and old suggestions
+            d['assetTitle'] = asset['fields'][id_title]['values'][0]['value'] # implicit assumption, but only one title allowed
+            try:
+                x = []
+                for val in asset['fields'][id_sugg]:
+                    x.append(val['value'])
+                d['suggestionIds'] = x
+            except:
+                d['suggestionIds'] = []
+            # Bug in SAP API that the following is not working
+            # d['assetDomain'] = asset['lovFields'][id_domain]['values'][0]['value']  # implicit assumption, but only one domain allowed
+            # Work around with a for-loop
+            for key, lovField in asset['lovFields'].items():
+                if lovField['title'] == 'Domain':
+                    d['assetDomain'] = lovField['values'][0]['value']
+            # Append the dictionary to the dataframe
+            df.loc[assetId] = pd.Series(d) # .loc is important, otherwise you append to unknown columns!
+        # Name the index of the dataframe
+        df.index.name = 'assetId'
+        return df
+
+    def makeReportSuggestions(self, df, assetId, nSuggestions=3):
+        """Create the suggestions of assets for the specified assetId using the assetDomain parameter"""
+        # Get the domain of your asset
+        domain = df.at[assetId, 'assetDomain']
+        # Select only the assets with the same domain
+        df_ = df.loc[df['assetDomain'] == domain]
+        # Sort these asset on viewCount
+        df_ = df_.sort_values(by='viewCount', ascending=False)
+        # Remove the entry with assetId
+        df_ = df_.drop(assetId)
+        # Return only the first nSuggestions entries
+        return df_.head(nSuggestions)
+
+    def formatReportSuggestions(self, df, assetId, nSuggestions=3):
+        """Format the JSON body to update the suggestions of the asset with assetId"""
+        # Get the information about the ReportSuggestions field from the structure
+        id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
+
+        # Get the information of the current live asset (GET statement or lookup in self.store)
+        asset = self.store[str(assetId)]
+
+        # Format the body with the minimal requirements of the current live asset
+
+        # Create the "values" of the suggestions
+        values = []
+        # Loop over the suggestions
+        for idx, sugg in df.iterrows():
+            values.append({"title": sugg['title'],
+                   "url": self.base + f"index.html/#/asset/{idx}",
+                   "type": "external"})
+        # Append the sub-body to the live body
+
+        return body
+
+
+    def pushReportSuggestions(self, df, assets='all', nSuggestions=3):
+        """
+        Make the suggestions for the specified assets and push these assets to the store
+        It uses the minimal information retrieved through extractSuggestionsInfoStore, that should be called separetely
+        You can specify an assetId, a list of assets, or 'all' assets (default) to which you want to alter the store
+        Warning: this function will alter your store!
+        """
+        print('Updating ReportSuggestions in the live store!')
+        # Some bookkeeping for the functionality
+        if assets == 'all':
+            assets = self.assetid
+        elif type(assets) != 'list':
+            assets = [assets]
+        # Loop over all the to-be-updated assets
+        for assetId in assets:
+            # Create the new suggesions
+            df_sug = self.makeReportSuggestions(df, assetId, nSuggestions)
+            print(f'Asset {assetId} has {len(df_sug)} number of suggestions')
+            if len(df_sug) != 0:
+                print('You have domain "' + df.at[assetId, 'assetDomain'] + '" and suggestions are')
+                print(df_sug)
+            """
+            # Test if new suggestions are the same as old suggestions
+            -test-
+            if False:
+                # Format the json with the new suggestions
+                -format-
+                # Create a draft
+                -draftId = xxx -
+                # POST the new json
+                -post-
+                # Autovalidate
+                -validate-
+            """
+
+
+
 
 
 
@@ -257,7 +385,7 @@ if __name__ == '__main__':
     # Call the class to generate a token
     my_connection = ConnectSacHub('./credits.dat', './token.dat')
     my_connection.connect()
-    my_connection.updateNewReportLov()
-    draftId = my_connection.changeLive2Draft(2)
-    my_connection.autoValidateDraft(draftId)
-    # Peform update of newDraft
+    my_connection.getLiveStore()
+    my_connection.getAssetStructure()
+    df = my_connection.extractSuggestionsInfoStore()
+    print(df)
