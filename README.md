@@ -11,6 +11,7 @@ Dependencies (i.e. packages / modules used):
 - requests-oauthlib   (version 1.0.0)
 - requests            (version 2.21.0)
 - logging             (version 0.5.1.2)
+- pandas              (version 0.23.4)
 - time
 - datetime
 
