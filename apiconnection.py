@@ -116,7 +116,7 @@ class ConnectSacHub:
         """
         # Retrieve minimal information to make report suggestions
         df_sug = self.extractSuggestionsInfoStore()
-        # Perform suggestions for each asset
+        # Perform suggestions for each asset and push them to the store
         self.pushReportSuggestions(df_sug, assets, nSuggestions)
 
 
@@ -318,27 +318,31 @@ class ConnectSacHub:
         # Return only the first nSuggestions entries
         return df_.head(nSuggestions)
 
-    def formatReportSuggestions(self, df, assetId, nSuggestions=3):
+    def formatReportSuggestions(self, df, assetId, draftId):
         """Format the JSON body to update the suggestions of the asset with assetId"""
         # Get the information about the ReportSuggestions field from the structure
-        id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
-
+        #id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
+        id_sugg = "10"
         # Get the information of the current live asset (GET statement or lookup in self.store)
         asset = self.store[str(assetId)]
-
-        # Format the body with the minimal requirements of the current live asset
-
-        # Create the "values" of the suggestions
+        # Create the "values" for the suggestions
         values = []
         # Loop over the suggestions
         for idx, sugg in df.iterrows():
-            values.append({"title": sugg['title'],
+            values.append({"value":{"title": sugg['assetTitle'],
                    "url": self.base + f"index.html/#/asset/{idx}",
-                   "type": "external"})
-        # Append the sub-body to the live body
-
+                   "type": "external"}})
+        # Format the body with the minimal requirements of the current live asset
+        body = {"id":draftId,
+                "assetId":int(assetId),
+                "type":asset['type'],
+                "fields":{
+                    "1": {"values":[{"value":'MijnTitelIsVandaagDit'}]},
+                    "10": {
+                        "values": values}
+                        }
+                }
         return body
-
 
     def pushReportSuggestions(self, df, assets='all', nSuggestions=3):
         """
@@ -357,10 +361,17 @@ class ConnectSacHub:
         for assetId in assets:
             # Create the new suggesions
             df_sug = self.makeReportSuggestions(df, assetId, nSuggestions)
-            print(f'Asset {assetId} has {len(df_sug)} number of suggestions')
+            # Test if you have any suggestions to make
             if len(df_sug) != 0:
-                print('You have domain "' + df.at[assetId, 'assetDomain'] + '" and suggestions are')
-                print(df_sug)
+                print(f'Asset {assetId}: was able to create {len(df_sug)} of suggestion(s)')
+                draftId = self.changeLive2Draft(assetId)
+                body = self.formatReportSuggestions(df_sug, assetId, draftId)
+                r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                                    headers = self.headers, json=body)
+                if r.ok:
+                    print(f'\tSuccesful POST to update the suggestions for asset {assetId}')
+                else:
+                    print(f'\tUnsuccesful POST command to update suggestions with status_code {r.status_code}')
             """
             # Test if new suggestions are the same as old suggestions
             -test-
@@ -387,5 +398,6 @@ if __name__ == '__main__':
     my_connection.connect()
     my_connection.getLiveStore()
     my_connection.getAssetStructure()
-    df = my_connection.extractSuggestionsInfoStore()
-    print(df)
+    my_connection.updateReportSuggestions()
+    #df = my_connection.extractSuggestionsInfoStore()
+    #print(df)
