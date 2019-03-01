@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mo Feb 25 2019
-LastModified on We Feb 27 2019
+LastModified on Fr Mar 01 2019
 
 @author: Bram Buysschaert
 
@@ -10,6 +10,10 @@ LastModified on We Feb 27 2019
 - Defining the .connect() method (v0.1)
 - Defining the .updateNewReport() method (v0.1; no workaround for timestamp issue)
 
+27/02:
+
+01/03:
+- Trying to investigate how to interact with this code through Docker
 
 """
 
@@ -19,8 +23,12 @@ from requests_oauthlib import OAuth2Session
 import csv
 import time, datetime
 import pandas as pd
+import sys
+
+
 
 # Set the logging
+
 import logging
 
 # Create extra functionality
@@ -65,6 +73,8 @@ class ConnectSacHub:
             if self.testClient():
                 print(f'\tConnection established with info from "{self.tokenFile}"')
                 pass
+            else:
+                raise ValueError('Token Expired')
         except:
             self.newToken()      # Create new token
             self.writeToken()      # Write token out
@@ -394,6 +404,9 @@ class ConnectSacHub:
 
 if __name__ == '__main__':
     # Call the class to generate a token
+    print(sys.argv)
+    print(f'You have {len(sys.argv)} command line arguments')
+
     my_connection = ConnectSacHub('./credits.dat', './token.dat')
     my_connection.connect()
     my_connection.getLiveStore()
