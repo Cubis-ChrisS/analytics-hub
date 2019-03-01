@@ -1,0 +1,6 @@
+base_url,https://daikin-europe-nv.eu1.sapanalytics.cloud/hub/
+authorize_url,https://oauthasservices-a4f6d560e.hana.ondemand.com/oauth2/api/v1/authorize
+token_url,https://oauthasservices-a4f6d560e.hana.ondemand.com/oauth2/api/v1/token
+client_id,sac-hub-demo
+client_secret,sac-hub-demo
+redirect_uri,https://localhost:8080/callback
