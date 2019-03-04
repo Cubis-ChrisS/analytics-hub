@@ -39,17 +39,12 @@ Contains the information of your API and client.  This is a csv-file hidden as a
 
 Formatting (order is not important):
 
-base_url,https://your_store_here.sapanalytics.cloud/hub/
-
-authorize_url,https://authorize_here/oauth2/api/v1/authorize
-
-token_url,https://authorize_here/oauth2/api/v1/token
-
-client_id,client_id
-
-client_secret,client_secret
-
-redirect_uri,https://XXX/callback
+- base_url,https://your_store_here.sapanalytics.cloud/hub/
+- authorize_url,https://authorize_here/oauth2/api/v1/authorize
+- token_url,https://authorize_here/oauth2/api/v1/token
+- client_id,client_id
+- client_secret,client_secret
+- redirect_uri,https://XXX/callback
 
 # Token file
 
@@ -57,12 +52,8 @@ Contains the information of your token.  This file is not encrypted, but should 
 
 Formatting (order is not important):
 
-access_token,token_here
-
-token_type,Bearer
-
-expires_in,expires_in_x_seconds
-
-refresh_token,refresh_token_here
-
-expires_at,unix_time
+- access_token,token_here
+- token_type,Bearer
+- expires_in,expires_in_x_seconds
+- refresh_token,refresh_token_here
+- expires_at,unix_time
