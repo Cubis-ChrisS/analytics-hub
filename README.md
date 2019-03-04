@@ -48,7 +48,7 @@ Formatting (order is not important):
 
 ### Token file
 
-Contains the information of your token.  This file is not encrypted, but should benefit from encription.  The file was constructed so you do not have to authorize each access to the API.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
+Contains the information of your three-legged OAuth2.0 token.  This file is not encrypted, but should benefit from encription.  The file was constructed so you do not have to authorize each access to the API.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
 
 Formatting (order is not important):
 
