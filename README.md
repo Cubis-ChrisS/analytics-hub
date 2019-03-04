@@ -70,7 +70,7 @@ These are things that are nice to have, but need to be tested / developed furthe
 
 - self.getLiveStore method:  gets the information of your store from a GET request to *self.base + api/v1/asset/recent*.  However, you do not get the complete information from that asset.  Only the first three fields are returned and all lovFields.  In case you want to look further than the first three fields, you will need to go to *self.base + api/v1/asset/assetId*.  Examples of the wanted extra information is the reportSuggestions or the contactPerson.
 
--self.getAssetStructure method: gets the information of your layout per assetType from a get request to *self.base + api/v1/structure/field*, *self.base + api/v1/structure/lovfield* and *self.base + api/v1/structure/lov*.  However, the information from these requests contradict themselves.  Especially for the lovField Ids.  This is very likely a bug at the API side from SAC Hub.
+- self.getAssetStructure method: gets the information of your layout per assetType from a get request to *self.base + api/v1/structure/field*, *self.base + api/v1/structure/lovfield* and *self.base + api/v1/structure/lov*.  However, the information from these requests contradict themselves.  Especially for the lovField Ids.  This is very likely a bug at the API side from SAC Hub.
 
 
 
