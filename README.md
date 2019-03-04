@@ -4,7 +4,7 @@ This repository contains functionality to interact with the SAC Hub through thei
 
 Code is developed with Python version 3.7.1 through an Anaconda installation.
 
-# Dependencies
+### Dependencies
 Non-standard Python modules:
 - oauthlib            (version 3.0.0)
 - requests-oauthlib   (version 1.0.0)
@@ -17,7 +17,7 @@ Standard Python modules:
 - datetime
 - csv
 
-# Basic usage
+### Basic usage
 Get the app
 > import apiconnection as app
 
@@ -33,7 +33,7 @@ Get a local copy of the SAC Hub store
 Perform functionality (e.g., update the reportSuggestions)
 > myapp.updateReportSuggestions(assets='all')
 
-# Credentials file
+### Credentials file
 
 Contains the information of your API and client.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
 
@@ -46,7 +46,7 @@ Formatting (order is not important):
 - client_secret,client_secret
 - redirect_uri,https://XXX/callback
 
-# Token file
+### Token file
 
 Contains the information of your token.  This file is not encrypted, but should benefit from encription.  The file was constructed so you do not have to authorize each access to the API.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
 
@@ -58,7 +58,7 @@ Formatting (order is not important):
 - refresh_token,refresh_token_here
 - expires_at,unix_time
 
-# Nice to have
+### Nice to have
 
 These are things that are nice to have, but need to be tested / developed further in the future
 
