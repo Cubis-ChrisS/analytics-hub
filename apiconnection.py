@@ -1,26 +1,51 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mo Feb 25 2019
-LastModified on We Feb 27 2019
+LastModified on Fr Mar 01 2019
 
 @author: Bram Buysschaert
 
 25/02:
 - Defining the ConnectSacHub class (v0.1)
-- Defining the .connect() method (v0.1)
-- Defining the .updateNewReport() method (v0.1; no workaround for timestamp issue)
+- Defining the .connect() method (v0.1) and the relevant submethods:
+    (.readCred(), .readToken(), .newToken, .writeToken(), .getClient(), .testClient(), .fetchXcsrf())
+- Defining the .updateNewReportLov() method (v0.1; no workaround for timestamp issue)
+- Defining part of the POST workflow to change live assets to draft asasets:
+    (.changeLive2Draf(), .updateStatusDraft(), .deleteDraft(), .autoValidateDraft())
 
+27/02:
+- Switching from .updateNewReportLov() to .updateReportSuggestions() development
+- Defining the .updateReportSuggestions() method (v0.1) and the revelant submethods:
+    (.extractSuggestionsInfoStore(), .makeReportSuggestions(), .formatReportSuggestionsBody(), .pushReportSuggestions())
+- Defined the .getAssetStructure() method, that returns the unique fieldIds and lovFieldIdsself.
+    (Bug at the API side that these do not always match)
+    (Used where applicable)
 
+01/03:
+- Trying to investigate how to interact with this code through Docker
+    Most of the changes happened outside of this code
+- Minor update to the .connect() method, since some functionality for error handling was missing.
+
+04/03:
+- Finishing the development of .pushReportSuggestions() and make it handle assets with no suggestions
+- Defining the .formatReportSuggestionsClear() method
+- Defining the .removeReportSuggestions() method (v0.1)
 """
 
-# Include packages
+# Include custom modules
 from oauthlib import oauth2
 from requests_oauthlib import OAuth2Session
-import csv
-import time, datetime
 import pandas as pd
 
+# Include standard modules
+import csv
+import time, datetime
+import sys
+
+
+
 # Set the logging
+
 import logging
 
 # Create extra functionality
@@ -65,6 +90,8 @@ class ConnectSacHub:
             if self.testClient():
                 print(f'\tConnection established with info from "{self.tokenFile}"')
                 pass
+            else:
+                raise ValueError('Token Expired')
         except:
             self.newToken()      # Create new token
             self.writeToken()      # Write token out
@@ -100,24 +127,62 @@ class ConnectSacHub:
             else:
                 newAsset.append('No')
         print('!!!Functionality not fully implemented!!!')
-        # Loop over the assets and update the assets
-        #for asset, id, newAsset in zip(self.store, self.assetid, newAsset):
-        #    lovFields = asset['lovFields'].items()
-        #    for key_lovo, val_lovo in lovFields:
-        #        for key_lovi, val_lovi in val_lovo.items():
-        #            if val_lovi == 'New Report':
-        #                print(key_lovo, key_lovi, val_lovi)
-        #        print(key_lovo, val_lovo)
 
     def updateReportSuggestions(self, assets='all', nSuggestions=3):
         """
-        Go through the store and test whether i) the report suggestions exist and ii) the report suggestions are correct
-        If the tests fail, you update the report suggestions with new values (i.e., links)
+        Go through the specified assets and hard-update their reportSuggestions
+        This method ignores any pre-existing reportSuggestions.
+        This method will hard-remove any existing reportSuggestions if it cannot create any suggestions during this execution.
         """
+        print('Updating ReportSuggestions in the live store!')
+        # Some bookkeeping for the functionality
+        if assets == 'all':
+            assets = self.assetid
+        elif type(assets) != 'list':
+            assets = [assets]
+            # Format everything to strings
+            for cc, asset in enumerate(assets):
+                assets[cc] = str(asset)
         # Retrieve minimal information to make report suggestions
-        df_sug = self.extractSuggestionsInfoStore()
-        # Perform suggestions for each asset and push them to the store
-        self.pushReportSuggestions(df_sug, assets, nSuggestions)
+        df = self.extractSuggestionsInfoStore() # Should have functionality for assets keyword!
+        # Loop over the assets and update them
+        for assetId in assets:
+            # Get the suggestions for the assetId
+            df_sug = self.makeReportSuggestions(df, assetId, nSuggestions)
+            # Push the suggestions to the store
+            self.pushReportSuggestions(df_sug, assetId)
+
+    def removeReportSuggestions(self, assets='all'):
+        """
+        Go through the specified assets and hard-remove their reportSuggestions
+        """
+        print('Removing ReportSuggestions in the live store!')
+        # Some bookkeeping for the functionality
+        if assets == 'all':
+            assets = self.assetid
+        elif type(assets) != 'list':
+            assets = [assets]
+            # Format everything to strings
+            for cc, asset in enumerate(assets):
+                assets[cc] = str(asset)
+        # Loop over the assets and remove their reportSuggestions
+        for assetId in assets:
+            print(f'\tAsset {assetId}: removing suggestion(s)')
+            # Copy asset from live to draft
+            draftId = self.changeLive2Draft(assetId)
+            # Format the body for the POST request
+            body = self.formatReportSuggestionsClear(assetId, draftId)
+            # Perform POST request
+            r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                                headers = self.headers, json=body)
+            # Test the reply of the POST request
+            if r.ok:
+                print(f'\t\tSuccessful POST for report suggestions clearing')
+                self.autoValidateDraft(draftId)
+            else:
+                print(f'\t\tUnsuccessful POST for report suggestions clearing with status_code {r.status_code}')
+                self.deleteDraft(draftId)
+
 
 
 
@@ -143,7 +208,7 @@ class ConnectSacHub:
             self.token = {rows[0]:rows[1] for rows in reader}
         self.token['scope'] = [''] # Not explictly saved and likely not needed!
         self.token['expires_at'] = float(self.token['expires_at'])
-
+        
     def newToken(self):
         """
         Update the access token, because the token from the tokenFile has expired or is unreadable
@@ -271,10 +336,14 @@ class ConnectSacHub:
         self.updateStatusDraft(draftId, status='live')
 
     def extractSuggestionsInfoStore(self):
-        """Extract the minimal information to make report suggestions from the local copy of the store"""
-        print('Extracting information for reportSuggestions from live store')
+        """
+        Extract the minimal information to make report suggestions from the local copy of the store that is stored at self.store
+        The self.store was / should be retrieved earlier through self.getLiveStore()
+        Returns a pandas dataframe with the minimal information needed to make suggestions
+        """
+        print('\tExtracting information for reportSuggestions from live store')
         # Empty dataframe to store the information to
-        df = pd.DataFrame(index=self.assetid, columns=['assetType', 'assetTitle', 'viewCount', 'assetDomain', 'draftId', 'suggestionIds'])
+        df = pd.DataFrame(index=self.assetid, columns=['assetType', 'assetTitle', 'viewCount', 'assetDomain', 'draftId'])
         # Get the id's for certain fields and lovs from the pre-loaded structure
         id_title = str(self.structure['fields']['Title']['id'])
         id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
@@ -286,13 +355,6 @@ class ConnectSacHub:
                  'viewCount': asset['viewCount']}
             # Search in the fields for the title of the asset and old suggestions
             d['assetTitle'] = asset['fields'][id_title]['values'][0]['value'] # implicit assumption, but only one title allowed
-            try:
-                x = []
-                for val in asset['fields'][id_sugg]:
-                    x.append(val['value'])
-                d['suggestionIds'] = x
-            except:
-                d['suggestionIds'] = []
             # Bug in SAP API that the following is not working
             # d['assetDomain'] = asset['lovFields'][id_domain]['values'][0]['value']  # implicit assumption, but only one domain allowed
             # Work around with a for-loop
@@ -306,7 +368,12 @@ class ConnectSacHub:
         return df
 
     def makeReportSuggestions(self, df, assetId, nSuggestions=3):
-        """Create the suggestions of assets for the specified assetId using the assetDomain parameter"""
+        """
+        Create the suggestions of assets for the specified assetId using the assetDomain parameter
+        df is the information retrieved through extractSuggestionsInfoStore
+        assetId: unique assetId of the studied assets
+        nSuggestions: the maximal amount of suggestions you are allowed to make
+        """
         # Get the domain of your asset
         domain = df.at[assetId, 'assetDomain']
         # Select only the assets with the same domain
@@ -318,7 +385,7 @@ class ConnectSacHub:
         # Return only the first nSuggestions entries
         return df_.head(nSuggestions)
 
-    def formatReportSuggestions(self, df, assetId, draftId):
+    def formatReportSuggestionsBody(self, df, assetId, draftId):
         """Format the JSON body to update the suggestions of the asset with assetId"""
         # Get the information about the ReportSuggestions field from the structure
         #id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
@@ -327,77 +394,102 @@ class ConnectSacHub:
         asset = self.store[str(assetId)]
         # Create the "values" for the suggestions
         values = []
-        # Loop over the suggestions
+        # Loop over the suggestions and append the suggestions
+        # url is from looking at the store
+        # title is the title of the suggested asset
         for idx, sugg in df.iterrows():
             values.append({"value":{"title": sugg['assetTitle'],
-                   "url": self.base + f"index.html/#/asset/{idx}",
+                   "url": self.base + f"index.html?#/asset/{idx}",
                    "type": "external"}})
         # Format the body with the minimal requirements of the current live asset
+        # 1 = Title (standard)
+        # id_sugg = 10 = Report suggestions (custom)
         body = {"id":draftId,
                 "assetId":int(assetId),
                 "type":asset['type'],
                 "fields":{
-                    "1": {"values":[{"value":'MijnTitelIsVandaagDit'}]},
+                    "1": {"values":[{"value":asset['fields']["1"]['values'][0]['value']}]},
+                    id_sugg: {
+                        "values": values}
+                        }
+                }
+        return body
+
+    def formatReportSuggestionsClear(self, assetId, draftId):
+        """Format the JSON body to remove the suggestions of the asset with assetId"""
+        # Get the information about the ReportSuggestions field from the structure
+        #id_sugg = str(self.structure['fields']['Report Suggestions']['id'])
+        id_sugg = "10"
+        # Get the information of the current live asset (GET statement or lookup in self.store)
+        asset = self.store[str(assetId)]
+        # Create an empty "values" list for the suggestions
+        values = []
+        # Format the body with the minimal requirements of the current live asset
+        # 1 = Title (standard)
+        # id_sugg = 10 = Report suggestions (custom)
+        body = {"id":draftId,
+                "assetId":int(assetId),
+                "type":asset['type'],
+                "fields":{
+                    "1": {"values":[{"value":asset['fields']["1"]['values'][0]['value']}]},
                     "10": {
                         "values": values}
                         }
                 }
         return body
 
-    def pushReportSuggestions(self, df, assets='all', nSuggestions=3):
+    def pushReportSuggestions(self, df_sug, assetId):
         """
         Make the suggestions for the specified assets and push these assets to the store
-        It uses the minimal information retrieved through extractSuggestionsInfoStore, that should be called separetely
+        It uses the minimal information retrieved through extractSuggestionsInfoStore, that should be called separetely and is stored in the dataframe "df"
         You can specify an assetId, a list of assets, or 'all' assets (default) to which you want to alter the store
         Warning: this function will alter your store!
         """
-        print('Updating ReportSuggestions in the live store!')
-        # Some bookkeeping for the functionality
-        if assets == 'all':
-            assets = self.assetid
-        elif type(assets) != 'list':
-            assets = [assets]
-        # Loop over all the to-be-updated assets
-        for assetId in assets:
-            # Create the new suggesions
-            df_sug = self.makeReportSuggestions(df, assetId, nSuggestions)
-            # Test if you have any suggestions to make
-            if len(df_sug) != 0:
-                print(f'Asset {assetId}: was able to create {len(df_sug)} of suggestion(s)')
-                draftId = self.changeLive2Draft(assetId)
-                body = self.formatReportSuggestions(df_sug, assetId, draftId)
-                r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
-                                    headers = self.headers, json=body)
-                if r.ok:
-                    print(f'\tSuccesful POST to update the suggestions for asset {assetId}')
-                else:
-                    print(f'\tUnsuccesful POST command to update suggestions with status_code {r.status_code}')
-            """
-            # Test if new suggestions are the same as old suggestions
-            -test-
-            if False:
-                # Format the json with the new suggestions
-                -format-
-                # Create a draft
-                -draftId = xxx -
-                # POST the new json
-                -post-
-                # Autovalidate
-                -validate-
-            """
-
-
-
-
-
-
+        # Test if you have any suggestions to make
+        if len(df_sug) != 0:
+            print(f'\tAsset {assetId}: was able to create {len(df_sug)} of suggestion(s)')
+            # Copy asset from live to draft
+            draftId = self.changeLive2Draft(assetId)
+            # Format the body for the POST request
+            body = self.formatReportSuggestionsBody(df_sug, assetId, draftId)
+            # Perform POST request
+            r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                                headers = self.headers, json=body)
+            # Test the reply of the POST request
+            if r.ok:
+                print(f'\t\tSuccessful POST for report suggestions')
+                self.autoValidateDraft(draftId)
+            else:
+                print(f'\t\tUnsuccessful POST for report suggestions with status_code {r.status_code}')
+                self.deleteDraft(draftId)
+        # No suggestions to make, so remove them (if any)
+        else:
+            print(f'\tAsset {assetId}: has no suggestion(s)')
+            # Copy asset from live to draft
+            draftId = self.changeLive2Draft(assetId)
+            # Format the body for the POST request
+            body = self.formatReportSuggestionsClear(assetId, draftId)
+            # Perform POST request
+            r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                                headers = self.headers, json=body)
+            # Test the reply of the POST request
+            if r.ok:
+                print(f'\t\tSuccessful POST for report suggestions')
+                self.autoValidateDraft(draftId)
+            else:
+                print(f'\t\tUnsuccessful POST for report suggestions with status_code {r.status_code}')
+                self.deleteDraft(draftId)
 
 if __name__ == '__main__':
     # Call the class to generate a token
     my_connection = ConnectSacHub('./credits.dat', './token.dat')
+    # Connect the class to the SAC Hub
     my_connection.connect()
+    # Get a copy of the live Store
     my_connection.getLiveStore()
+    # Understand the structure of the store
     my_connection.getAssetStructure()
-    my_connection.updateReportSuggestions()
+    # Update the report suggestions
+    my_connection.removeReportSuggestions()
     #df = my_connection.extractSuggestionsInfoStore()
     #print(df)
