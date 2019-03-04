@@ -1,6 +1,6 @@
 # API connection to SAC Hub
 
-This repository contains functionality to interact with the SAC Hub through their API.  All developed functionality is stored in the class in the apiconnection.py file / script.  Smaller Python scripts calling this class can then be used to demonstrate the developed functionality.
+This repository contains functionality to interact with the SAC Hub through their API.  All developed functionality is stored in the *ConnectSacHub* class in the *apiconnection.py* file / script.  Smaller Python scripts calling this class can then be used to demonstrate the developed functionality.
 
 Code is developed with Python version 3.7.1 through an Anaconda installation.
 
