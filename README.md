@@ -57,3 +57,10 @@ Formatting (order is not important):
 - expires_in,expires_in_x_seconds
 - refresh_token,refresh_token_here
 - expires_at,unix_time
+
+# Nice to have
+
+These are things that are nice to have, but need to be tested / developed further in the future
+
+- Standard interaction with Python logging
+- Enable containerization with Docker
