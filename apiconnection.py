@@ -7,22 +7,34 @@ LastModified on Fr Mar 01 2019
 
 25/02:
 - Defining the ConnectSacHub class (v0.1)
-- Defining the .connect() method (v0.1)
-- Defining the .updateNewReport() method (v0.1; no workaround for timestamp issue)
+- Defining the .connect() method (v0.1) and the relevant submethods:
+    (.readCred(), .readToken(), .newToken, .writeToken(), .getClient(), .testClient(), .fetchXcsrf())
+- Defining the .updateNewReportLov() method (v0.1; no workaround for timestamp issue)
+- Defining part of the POST workflow to change live assets to draft asasets:
+    (.changeLive2Draf(), .updateStatusDraft(), .deleteDraft(), .autoValidateDraft())
 
 27/02:
+- Switching from .updateNewReportLov() to .updateReportSuggestions() development
+- Defining the .updateReportSuggestions() method (v0.1) and the revelant submethods:
+    (.extractSuggestionsInfoStore(), .makeReportSuggestions(), formatReportSuggestions(), pushReportSuggestions())
+- Defined the .getAssetStructure() method, that returns the unique fieldIds and lovFieldIdsself.
+    (Bug at the API side that these do not always match)
+    (Used where applicable)
 
 01/03:
 - Trying to investigate how to interact with this code through Docker
-
+    Most of the changes happened outside of this code
+- Minor update to the .connect() method, since some functionality for error handling was missing.
 """
 
-# Include packages
+# Include custom modules
 from oauthlib import oauth2
 from requests_oauthlib import OAuth2Session
+import pandas as pd
+
+# Include standard modules
 import csv
 import time, datetime
-import pandas as pd
 import sys
 
 
@@ -110,14 +122,6 @@ class ConnectSacHub:
             else:
                 newAsset.append('No')
         print('!!!Functionality not fully implemented!!!')
-        # Loop over the assets and update the assets
-        #for asset, id, newAsset in zip(self.store, self.assetid, newAsset):
-        #    lovFields = asset['lovFields'].items()
-        #    for key_lovo, val_lovo in lovFields:
-        #        for key_lovi, val_lovi in val_lovo.items():
-        #            if val_lovi == 'New Report':
-        #                print(key_lovo, key_lovi, val_lovi)
-        #        print(key_lovo, val_lovo)
 
     def updateReportSuggestions(self, assets='all', nSuggestions=3):
         """
@@ -281,7 +285,11 @@ class ConnectSacHub:
         self.updateStatusDraft(draftId, status='live')
 
     def extractSuggestionsInfoStore(self):
-        """Extract the minimal information to make report suggestions from the local copy of the store"""
+        """
+        Extract the minimal information to make report suggestions from the local copy of the store that is stored at self.store
+        The self.store was / should be retrieved earlier through self.getLiveStore()
+        Returns a pandas dataframe with the minimal information needed to make suggestions
+        Warning: the suggestionIds functionality is still experimental"""
         print('Extracting information for reportSuggestions from live store')
         # Empty dataframe to store the information to
         df = pd.DataFrame(index=self.assetid, columns=['assetType', 'assetTitle', 'viewCount', 'assetDomain', 'draftId', 'suggestionIds'])
@@ -316,7 +324,12 @@ class ConnectSacHub:
         return df
 
     def makeReportSuggestions(self, df, assetId, nSuggestions=3):
-        """Create the suggestions of assets for the specified assetId using the assetDomain parameter"""
+        """
+        Create the suggestions of assets for the specified assetId using the assetDomain parameter
+        df is the information retrieved through extractSuggestionsInfoStore
+        assetId: unique assetId of the studied assets
+        nSuggestions: the maximal amount of suggestions you are allowed to make
+        """
         # Get the domain of your asset
         domain = df.at[assetId, 'assetDomain']
         # Select only the assets with the same domain
@@ -357,7 +370,7 @@ class ConnectSacHub:
     def pushReportSuggestions(self, df, assets='all', nSuggestions=3):
         """
         Make the suggestions for the specified assets and push these assets to the store
-        It uses the minimal information retrieved through extractSuggestionsInfoStore, that should be called separetely
+        It uses the minimal information retrieved through extractSuggestionsInfoStore, that should be called separetely and is stored in the dataframe "df"
         You can specify an assetId, a list of assets, or 'all' assets (default) to which you want to alter the store
         Warning: this function will alter your store!
         """
@@ -382,6 +395,8 @@ class ConnectSacHub:
                     print(f'\tSuccesful POST to update the suggestions for asset {assetId}')
                 else:
                     print(f'\tUnsuccesful POST command to update suggestions with status_code {r.status_code}')
+            else:
+                print(df_sug)
             """
             # Test if new suggestions are the same as old suggestions
             -test-
