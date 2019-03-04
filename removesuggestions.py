@@ -5,4 +5,6 @@ import apiconnection as app
 remover = app.ConnectSacHub('./credits.dat', './token.dat')
 remover.connect()
 remover.getLiveStore()
+# Standard functionality to remove the report suggestions (all assets)
 remover.removeReportSuggestions()
+# ==  remover.removeReportSuggestions(assets='all')
