@@ -37,6 +37,8 @@ Perform functionality (e.g., update the reportSuggestions)
 
 Contains the information of your API and client.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
 
+The client is constructed following the workflow described in [this blog](https://blogs.sap.com/2018/04/20/sap-analytics-cloud-apis-getting-started-guide/). Especially Section 1.2 of the blog is relevant.
+
 Formatting (order is not important):
 
 - base_url,https://your_store_here.sapanalytics.cloud/hub/
@@ -48,7 +50,16 @@ Formatting (order is not important):
 
 ### Token file
 
-Contains the information of your three-legged OAuth2.0 token.  This file is not encrypted, but should benefit from encription.  The file was constructed so you do not have to authorize each access to the API.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
+Contains the information of your three-legged OAuth2.0 token.  This file is not encrypted, but should benefit from encryption.  The file was constructed so you do not have to authorize each access to the API.  This is a csv-file hidden as a txt-file.  As long as the file and path is correctly specified, the extension of the file does not matter.  The actual content is stored in a Python dictionary.
+
+In case the login token for the client has expired (typically after 2 hours), the code will ask you to generate a new token by logging in to the SAP Analytics Cloud.  Refreshing of tokens was not implemented.
+
+To retrieve a new token:
+1. The code will prompt an URL in the Python terminal that you will have to copy-paste into an internet browser.  No automatic connection with the internet browser is made.
+2. Login to the SAP Analytics Cloud with an admin account through the link that has been provided.
+3. Authorize the connection by clicking "authorize".
+4. Copy-paste the response URL from the authorization request (which is blank website) into the Python terminal.
+5. Hit enter.  You should have a new token, which is automatically saved to the token file.
 
 Formatting (order is not important):
 
