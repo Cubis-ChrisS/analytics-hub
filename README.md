@@ -54,11 +54,11 @@ Contains the information of your three-legged OAuth2.0 token.  This file is not 
 
 In case the login token for the client has expired (typically after 2 hours), the code will ask you to generate a new token by logging in to the SAP Analytics Cloud.  Refreshing of tokens was not implemented.
 
-To retrieve a new token, the code will do the following:
-1. Prompt an URL that you will have to copy-paste into an internet browser.
-2. Login to the SAP Analytics Cloud with an admin account
-3. Authorize the connection
-4. Copy-paste the response URL from the authorization (blank website) into the Python terminal
+To retrieve a new token:
+1. The code will prompt an URL in the Python terminal that you will have to copy-paste into an internet browser.  No automatic connection with the internet browser is made.
+2. Login to the SAP Analytics Cloud with an admin account through the link that has been provided.
+3. Authorize the connection by clicking "authorize".
+4. Copy-paste the response URL from the authorization request (which is blank website) into the Python terminal.
 5. Hit enter.  You should have a new token, which is automatically saved to the token file.
 
 Formatting (order is not important):
