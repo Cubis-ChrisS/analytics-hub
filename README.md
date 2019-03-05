@@ -88,3 +88,13 @@ These are things that are nice to have, but need to be tested / developed furthe
 ### Known issues
 
 - during the connection, it can seem that the code is hanging at the *Reading token file "./token.dat* step.  So far, the origin of this issue is unknown.  You just have to wait slightly longer for an established connection.
+
+
+
+### Browsing inside the API
+
+You can find a lot of relevant information of where everything resides inside the API by looking / searching the following three manual pages of the SAC Hub API.
+
+- [Defining the structure](https://help.sap.com/doc/29f4852e0d1f4723b68fff230b48152a/1.0/en-US/defineStructure.html)
+- [Managing the store](https://help.sap.com/doc/82da3b41d1c948f3bca0af4d9baeb959/1.0/en-US/manageStore.html)
+- [Editing content](https://help.sap.com/doc/168ab59dc7aa4bada9ae423f82c23a94/1.0/en-US/editContent.html)
