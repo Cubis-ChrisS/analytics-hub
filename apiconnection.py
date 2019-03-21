@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mo Feb 25 2019
-LastModified on Fr Mar 01 2019
+LastModified on Mo Mar 04 2019
 
 @author: Bram Buysschaert
 
@@ -30,6 +30,10 @@ LastModified on Fr Mar 01 2019
 - Finishing the development of .pushReportSuggestions() and make it handle assets with no suggestions
 - Defining the .formatReportSuggestionsClear() method
 - Defining the .removeReportSuggestions() method (v0.1)
+- Defining the .updateMailtoBody method (v0.1) and the relevant submethods
+    (.pushMailtoBody(), .draftMailtoBody())
+- Defining the .removeMailtoBody method (v0.1) and the relevant submethods
+    (.pushMailtoBodyClear(), .draftMailtoBodyClear())
 """
 
 # Include custom modules
@@ -183,8 +187,43 @@ class ConnectSacHub:
                 print(f'\t\tUnsuccessful POST for report suggestions clearing with status_code {r.status_code}')
                 self.deleteDraft(draftId)
 
+    def updateMailtoBody(self, assets='all'):
+        """
+        Go through the specified assets and hard-update their mailto urls
+        This method will draft a subject header for the email and part of the body
+        """
+        print('Drafting emails subject and body in the live store!')
+        # Some bookkeeping for the functionality
+        if assets == 'all':
+            assets = self.assetid
+        elif type(assets) != 'list':
+            assets = [assets]
+            # Format everything to strings
+            for cc, asset in enumerate(assets):
+                assets[cc] = str(asset)
+        # Loop over the assets and update them
+        for assetId in assets:
+            # Push the drafted email to the store
+            self.pushMailtoBody(assetId)
 
-
+    def removeMailtoBody(self, assets='all'):
+            """
+            Go through the specified assets and hard-update their mailto urls
+            This method will remove any subject header for the email and the drafted body
+            """
+            print('Drafting emails subject and body in the live store!')
+            # Some bookkeeping for the functionality
+            if assets == 'all':
+                assets = self.assetid
+            elif type(assets) != 'list':
+                assets = [assets]
+                # Format everything to strings
+                for cc, asset in enumerate(assets):
+                    assets[cc] = str(asset)
+            # Loop over the assets and update them
+            for assetId in assets:
+                # Push the drafted email to the store
+                self.pushMailtoBodyClear(assetId)
 
     # =========================================================
     # Methods that are called by other methods for functionality
@@ -208,7 +247,7 @@ class ConnectSacHub:
             self.token = {rows[0]:rows[1] for rows in reader}
         self.token['scope'] = [''] # Not explictly saved and likely not needed!
         self.token['expires_at'] = float(self.token['expires_at'])
-        
+
     def newToken(self):
         """
         Update the access token, because the token from the tokenFile has expired or is unreadable
@@ -253,8 +292,8 @@ class ConnectSacHub:
             print('\tX-CSRF-Token updated')
 
     def getLiveStore(self):
-        """Retrieve the full information of your live assets in your SAC Hub store through a GET request"""
-        print('\tGETting the information of your live store')
+        """Retrieve the information of your live assets in your SAC Hub store through a GET request"""
+        print('\tGETting *partial* information of your live store')
         r = self.client.get(self.base + 'api/v1/asset/recent', headers=self.headers)
         if r.ok:
             # Create a dictionary for the store
@@ -480,6 +519,137 @@ class ConnectSacHub:
                 print(f'\t\tUnsuccessful POST for report suggestions with status_code {r.status_code}')
                 self.deleteDraft(draftId)
 
+    def pushMailtoBody(self, assetId):
+        """Draft the information for the POST request and update the asset that resided in the live store"""
+        print(f'\tAsset {assetId}: updating the mailto URL')
+        # Copy asset from live to draft
+        draftId = self.changeLive2Draft(assetId)
+        # Draft the JSON body
+        body = self.draftMailtoBody(assetId, draftId)
+        # Perform POST request
+        r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                            headers = self.headers, json=body)
+        # Test the reply of the POST request
+        if r.ok:
+            print(f'\t\tSuccessful POST for mailto update')
+            self.autoValidateDraft(draftId)
+        else:
+            print(f'\t\tUnsuccessful POST for mailto update with status_code {r.status_code}')
+            self.deleteDraft(draftId)
+
+    def pushMailtoBodyClear(self, assetId):
+        """Draft the information for the POST request and update the asset that resided in the live store"""
+        print(f'\tAsset {assetId}: updating the mailto URL')
+        # Copy asset from live to draft
+        draftId = self.changeLive2Draft(assetId)
+        # Draft the JSON body
+        body = self.draftMailtoBodyClear(assetId, draftId)
+        # Perform POST request
+        r = self.client.post(self.base + 'api/v1/asset/draft/' + str(draftId),
+                            headers = self.headers, json=body)
+        # Test the reply of the POST request
+        if r.ok:
+            print(f'\t\tSuccessful POST for mailto update')
+            self.autoValidateDraft(draftId)
+        else:
+            print(f'\t\tUnsuccessful POST for mailto update with status_code {r.status_code}')
+            self.deleteDraft(draftId)
+
+    def draftMailtoBody(self, assetId, draftId):
+        """Draft the email subject and body from the information in the asset and return the json body for the POST"""
+        # Get the information of the current live asset (GET statement for complete information)
+        r = self.client.get(self.base + f'api/v1/asset/{assetId}', headers=self.headers)
+        if r.ok:
+            asset = r.json()
+        else:
+            print(f'\t\tUnsuccessful POST to get asset {assetId} info with status_code {r.status_code}')
+        # Get the asset title
+        asset_title = asset['fields']["1"]['values'][0]['value']
+        # Get the asset "Report Owner"
+        for id, field in asset['fields'].items():
+            if field['title'] == 'Report Owner':
+                id_mailto = str(id)
+        # Create a "values" list for the new mailto and retrieve the old values
+        values_old = asset['fields'][id_mailto]['values']
+        values_new = []
+        # Loop over the old values and write out the new values
+        for value in values_old:
+            owner = value['value']['title']
+            url = value['value']['url']
+            # Test if any formatting happened to the mailto url
+            if '?' in url:
+                if 'subject' in url:
+                    url = url.split('?subject')[0]
+                elif 'body' in url:
+                    url = url.split('?body')[0]
+            # Generate the subject and body and append it to the url
+            url += f'?subject={asset_title}&body=Dear {owner},%0AI have a question regarding your report.'
+            # Note: "%0A" is the encoding for a newline
+            # Replace any whitespaces with the correct encoding
+            url.replace(' ', '%20')
+            # Write out the value
+            values_new.append({"value":{"title": owner,
+                   "url": url,
+                   "type": "external"}})
+        # Format the body with the minimal requirements of the current live asset
+        # 1 = Title (standard)
+        # asset_title = (automatically retrieved)
+        body = {"id":draftId,
+                "assetId":int(assetId),
+                "type":asset['type'],
+                "fields":{
+                    "1": {"values":[{"value":asset_title}]},
+                    id_mailto: {
+                        "values": values_new}
+                        }
+                }
+        return body
+
+    def draftMailtoBodyClear(self, assetId, draftId):
+        """Remove the email subject and body from the information in the asset and return the json body for the POST"""
+        # Get the information of the current live asset (GET statement for complete information)
+        r = self.client.get(self.base + f'api/v1/asset/{assetId}', headers=self.headers)
+        if r.ok:
+            asset = r.json()
+        else:
+            print(f'\t\tUnsuccessful POST to get asset {assetId} info with status_code {r.status_code}')
+        # Get the asset title
+        asset_title = asset['fields']["1"]['values'][0]['value']
+        # Get the asset "Report Owner"
+        for id, field in asset['fields'].items():
+            if field['title'] == 'Report Owner':
+                id_mailto = str(id)
+        # Create a "values" list for the new mailto and retrieve the old values
+        values_old = asset['fields'][id_mailto]['values']
+        values_new = []
+        # Loop over the old values and write out the new values
+        for value in values_old:
+            owner = value['value']['title']
+            url = value['value']['url']
+            # Test if any formatting happened to the mailto url
+            if '?' in url:
+                if 'subject' in url:
+                    url = url.split('?subject')[0]
+                elif 'body' in url:
+                    url = url.split('?body')[0]
+            # Write out the value
+            values_new.append({"value":{"title": owner,
+                   "url": url,
+                   "type": "external"}})
+        # Format the body with the minimal requirements of the current live asset
+        # 1 = Title (standard)
+        # asset_title = (automatically retrieved)
+        body = {"id":draftId,
+                "assetId":int(assetId),
+                "type":asset['type'],
+                "fields":{
+                    "1": {"values":[{"value":asset_title}]},
+                    id_mailto: {
+                        "values": values_new}
+                        }
+                }
+        return body
+
 if __name__ == '__main__':
     # Call the class to generate a token
     my_connection = ConnectSacHub('./credits.dat', './token.dat')
@@ -490,6 +660,21 @@ if __name__ == '__main__':
     # Understand the structure of the store
     my_connection.getAssetStructure()
     # Update the report suggestions
-    my_connection.removeReportSuggestions()
-    #df = my_connection.extractSuggestionsInfoStore()
-    #print(df)
+    #my_connection.removeReportSuggestions()
+    # Update the mailto urls
+    my_connection.updateMailtoBody(assets='1')
+
+
+    ###################
+    #### DEBUGGING ####
+    ###################
+    """
+    store = my_connection.store
+
+    r = my_connection.client.get(my_connection.base + 'api/v1/asset/1', headers=my_connection.headers)
+    asset = r.json()
+    #for fieldId, field in asset['fields'].items():
+    #    print(fieldId, field)
+    for value in asset['fields']['5']['values']:
+        print( value['value']['title'])
+    """
