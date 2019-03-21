@@ -2,7 +2,7 @@ FROM python:3
 ADD apiconnection.py ./
 ADD token.dat ./
 ADD credits.dat ./
-ADD updatesuggestion.py ./
+ADD updatesuggestions.py ./
 
 RUN pip install oauthlib
 RUN pip install requests_oauthlib
