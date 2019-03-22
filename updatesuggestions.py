@@ -11,5 +11,5 @@ updater.updateReportSuggestions()
 # (uncomment any of the following to run)
 ## For a specific asset
 # updater.updateReportSuggestions(assets='1')
-## Lower number of assets (e.g., 1)
+## Lower number of assets provided as suggestions (e.g., 1)
 # updater.updateReportSuggestions(nSuggestions=1)
