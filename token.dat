@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 access_token,a3f2836499a3c649fb6ebc36393fb8
 token_type,Bearer
 expires_in,7200
 refresh_token,c7822b76289376e351a51c6976d9771f
 expires_at,1551712204.6549954
+=======
+access_token,50645d53f078578e129cd57db99751a
+token_type,Bearer
+expires_in,7200
+refresh_token,1fda78cfe6a0d231aa3c914b015a32a
+expires_at,1553249905.3497255
+>>>>>>> d7e4aa1f398dab07602ce386be5a720d2301acc2
